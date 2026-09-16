@@ -1,0 +1,12 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+
+device="$(popp-option device)"
+shared_channel="$(popp-option shared_channel 15)"
+
+bashio::log.info "Starting POPP health/metrics service on :9100..."
+exec python3 -m popp_supervisor.service \
+  --device "$device" \
+  --shared-channel "$shared_channel" \
+  --host 0.0.0.0 \
+  --port 9100

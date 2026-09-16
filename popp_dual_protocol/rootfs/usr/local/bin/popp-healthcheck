@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+import json
+import sys
+import urllib.request
+
+try:
+    with urllib.request.urlopen("http://127.0.0.1:9100/healthz", timeout=2) as response:
+        payload = json.load(response)
+except Exception:
+    sys.exit(1)
+
+sys.exit(0 if payload.get("ready") is True else 1)

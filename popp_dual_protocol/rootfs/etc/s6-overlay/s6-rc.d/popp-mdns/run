@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+for _ in $(seq 1 100); do
+  [ -S /run/dbus/system_bus_socket ] && break
+  sleep 0.1
+done
+[ -S /run/dbus/system_bus_socket ] || bashio::exit.nok "D-Bus socket not ready"
+bashio::log.info "Starting Avahi mDNS..."
+exec avahi-daemon --no-chroot --no-drop-root

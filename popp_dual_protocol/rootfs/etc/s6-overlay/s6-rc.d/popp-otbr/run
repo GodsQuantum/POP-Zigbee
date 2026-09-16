@@ -1,0 +1,34 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+
+socket=/dev/shm/cpcd/cpcd_0/ctrl.cpcd.sock
+for _ in $(seq 1 300); do
+  [ -S "$socket" ] && break
+  sleep 0.1
+done
+[ -S "$socket" ] || bashio::exit.nok "CPCd control socket not ready"
+
+backbone="$(ip -4 route show default 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="dev") {print $(i+1); exit}}')"
+if [ -z "$backbone" ]; then
+  backbone="$(ip -6 route show default 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="dev") {print $(i+1); exit}}')"
+fi
+[ -n "$backbone" ] || backbone="eth0"
+baudrate="$(popp-option baudrate 460800)"
+
+mkdir -p /data/thread
+rm -rf /var/lib/thread
+ln -s /data/thread /var/lib/thread
+
+# OTBR is compiled with firewall support and updates these sets internally.
+# Pre-create them even when no shell firewall policy is enabled, matching the
+# current Home Assistant OTBR add-on and avoiding noisy update failures.
+ipset create -exist otbr-ingress-deny-src hash:net family inet6
+ipset create -exist otbr-ingress-deny-src-swap hash:net family inet6
+ipset create -exist otbr-ingress-allow-dst hash:net family inet6
+ipset create -exist otbr-ingress-allow-dst-swap hash:net family inet6
+
+bashio::log.info "Starting CPC-aware OTBR on endpoint 12 / IID 0 (backbone=${backbone})..."
+exec /opt/popp/bin/otbr-agent \
+  -I wpan0 -B "$backbone" -d5 -v \
+  --rest-listen-address :: --rest-listen-port 8081 \
+  "spinel+cpc://cpcd_0?iid=0&iid-list=0&cpc-bus-speed=${baudrate}"

@@ -1,0 +1,41 @@
+---
+version: 0.1.0
+slug: popp_dual_protocol
+name: POPP Dual Protocol
+description: Hardened Zigbee NCP + Thread RCP host stack for ELU013/MG13
+url: https://github.com/GodsQuantum/POP-Zigbee
+arch:
+  - amd64
+image: ghcr.io/godsquantum/{arch}-addon-popp-dual-protocol
+homeassistant: 2025.7.0
+hassio_api: true
+discovery:
+  - otbr
+host_ipc: false
+host_network: true
+host_uts: true
+privileged:
+  - IPC_LOCK
+  - NET_ADMIN
+devices:
+  - /dev/net/tun
+init: false
+startup: services
+options:
+  device: null
+  baudrate: "460800"
+  shared_channel: 15
+  cpcd_trace: false
+ports:
+  9999/tcp: null
+  8081/tcp: null
+  9100/tcp: null
+ports_description:
+  9999/tcp: ZHA EZSP/ASH bridge
+  8081/tcp: OpenThread REST API
+  9100/tcp: POPP health and Prometheus metrics
+schema:
+  device: device(subsystem=tty)
+  baudrate: list(460800)
+  shared_channel: int(11,26)
+  cpcd_trace: bool

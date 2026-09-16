@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.cache/
+backups/
+build/
+dist/
+*.log
+*.sock
+*.trace
+popp_dual_protocol/artifacts/
+.DS_Store
+*~
+third_party/
+tmp/

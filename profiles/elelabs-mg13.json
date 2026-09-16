@@ -1,0 +1,11 @@
+{
+  "id": "elelabs-mg13-pa0-pa1",
+  "mcu": "EFR32MG13P632F512GM32 / EFR32MG13P732F512GM32",
+  "uart": {"peripheral": "USART0", "tx": "PA0", "rx": "PA1", "baud_cpc": 460800, "flow_control": "none"},
+  "bootloader": {"type": "Gecko standalone", "validated_version": "1.A.0", "baud": 115200},
+  "cpc": {"zigbee_endpoint": 5, "thread_endpoint": 12},
+  "validated": ["POPP ZB-Stick 701554"],
+  "same_board_family_not_yet_field_validated": ["Elelabs ELU013", "Elelabs ELR023", "POPP ZB-Shield 701561"],
+  "probe_identity": ["Elelabs", "ELR023", "ELU013"],
+  "notes": "Automatic flashing requires a positive application/board probe; VID:PID alone is never sufficient."
+}

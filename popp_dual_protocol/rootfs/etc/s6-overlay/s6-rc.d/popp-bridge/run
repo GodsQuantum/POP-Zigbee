@@ -1,0 +1,17 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+
+socket=/dev/shm/cpcd/cpcd_0/ctrl.cpcd.sock
+for _ in $(seq 1 300); do
+  [ -S "$socket" ] && break
+  sleep 0.1
+done
+[ -S "$socket" ] || bashio::exit.nok "CPCd control socket not ready"
+
+bashio::log.info "Starting EZSP CPC -> ASH/TCP bridge on :9999..."
+exec python3 -m popp_bridge.main \
+  --instance cpcd_0 \
+  --libcpc /opt/popp/lib/libcpc.so.3 \
+  --host 0.0.0.0 \
+  --port 9999 \
+  --cpcd-service /run/service/popp-cpcd

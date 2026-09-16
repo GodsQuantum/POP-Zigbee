@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+mkdir -p /run/dbus
+rm -f /run/dbus/pid
+bashio::log.info "Starting D-Bus for Avahi..."
+exec dbus-daemon --system --nofork --nopidfile

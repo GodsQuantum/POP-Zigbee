@@ -1,0 +1,288 @@
+#!/usr/bin/env python3
+"""POPP-Zigbee safe installer/doctor/rollback CLI."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import sys
+import urllib.request
+
+VERSION = "0.1.0"
+ROOT = Path(__file__).resolve().parent
+FIRMWARE = ROOT / "firmware/popp-elu013-mg13-gsdk4.5.1-dual-460800.gbl"
+FIRMWARE_SHA256 = "40112185c2cb0522b1cb5c12992184a08a747dc091e515245c53954147d04792"
+RECOVERY_URL = "https://raw.githubusercontent.com/zha-ng/EZSP-Firmware/master/Elelabs-ELU013/efr32mg13p-v8-6910-115200.gbl"
+RECOVERY_SHA256 = "23fb74647428e130672f35c833ca688640f44c5fb1aeba1982a5da410f3a135b"
+USF_VERSION = "0.0.37"
+
+
+def run(cmd: list[str], *, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        check=check,
+        text=True,
+        stdout=subprocess.PIPE if capture else None,
+        stderr=subprocess.STDOUT if capture else None,
+    )
+
+
+def sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def find_device(explicit: str | None) -> Path:
+    if explicit:
+        p = Path(explicit)
+        if not p.exists():
+            raise SystemExit(f"Device not found: {p}")
+        return p
+    candidates = sorted(Path("/dev/serial/by-id").glob("*USB_Serial*")) if Path("/dev/serial/by-id").exists() else []
+    if len(candidates) == 1:
+        return candidates[0]
+    raise SystemExit("Pass --device /dev/serial/by-id/... (automatic detection was not unambiguous).")
+
+
+def ensure_usf() -> str:
+    existing = shutil.which("universal-silabs-flasher")
+    if existing:
+        return existing
+    cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "popp-zigbee"
+    venv = cache / "venv"
+    exe = venv / "bin/universal-silabs-flasher"
+    if exe.exists():
+        return str(exe)
+    cache.mkdir(parents=True, exist_ok=True)
+    print(f"Installing universal-silabs-flasher {USF_VERSION} in {venv} …")
+    run([sys.executable, "-m", "venv", str(venv)], capture=False)
+    pip = venv / "bin/pip"
+    run([str(pip), "install", "--quiet", f"universal-silabs-flasher=={USF_VERSION}"], capture=False)
+    if not exe.exists():
+        raise SystemExit("Could not install universal-silabs-flasher")
+    return str(exe)
+
+
+def probe(device: Path, methods: tuple[str, ...] = ("cpc", "ezsp", "bootloader")) -> str:
+    usf = ensure_usf()
+    cmd = [usf, "--device", str(device)]
+    for method in methods:
+        cmd += ["--probe-method", method]
+    cmd += ["probe"]
+    result = run(cmd, check=False)
+    return result.stdout or ""
+
+
+def is_supported_probe(text: str) -> bool:
+    lower = text.lower()
+    if "cpc" in lower and "4.5.1" in lower:
+        return True
+    return "elelabs" in lower and ("elr023" in lower or "elu013" in lower)
+
+
+def verify_firmware_file(path: Path) -> None:
+    if not path.exists():
+        raise SystemExit(f"Firmware missing: {path}")
+    actual = sha256(path)
+    if actual != FIRMWARE_SHA256:
+        raise SystemExit(f"Firmware SHA256 mismatch: {actual}")
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    device = find_device(args.device)
+    verify_firmware_file(FIRMWARE)
+    print(f"POPP-Zigbee {VERSION}")
+    print(f"Device   : {device}")
+    print(f"Firmware : {FIRMWARE.name}")
+    print(f"SHA256   : {FIRMWARE_SHA256}")
+    print("\nProbing radio …")
+    result = probe(device)
+    print(result.rstrip() or "(no probe output)")
+    if not is_supported_probe(result):
+        print("\nSUPPORTED: no — refusing automatic flash.")
+        return 2
+    print("\nSUPPORTED: yes")
+    return 0
+
+
+def make_backup(device: Path, destination: Path, ha_config: str | None = None) -> Path:
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = destination / stamp
+    out.mkdir(parents=True, exist_ok=False)
+    (out / "probe-before.txt").write_text(probe(device), encoding="utf-8")
+    (out / "firmware-target.sha256").write_text(
+        f"{FIRMWARE_SHA256}  {FIRMWARE.name}\n", encoding="utf-8"
+    )
+    if ha_config:
+        cfg = Path(ha_config)
+        for name in ("zigbee.db", "configuration.yaml"):
+            src = cfg / name
+            if src.exists():
+                shutil.copy2(src, out / name)
+    print(f"Backup metadata written to {out}")
+    print("Note: Gecko bootloader does not provide a raw flash dump here; rollback uses a known-good upstream Zigbee firmware.")
+    return out
+
+
+def cmd_backup(args: argparse.Namespace) -> int:
+    device = find_device(args.device)
+    make_backup(device, Path(args.output), args.ha_config)
+    return 0
+
+
+def flash_file(device: Path, firmware: Path, methods: tuple[str, ...]) -> None:
+    usf = ensure_usf()
+    cmd = [usf, "--device", str(device)]
+    for method in methods:
+        cmd += ["--probe-method", method]
+    cmd += ["flash", "--firmware", str(firmware)]
+    run(cmd, capture=False)
+
+
+def require_confirmation(args: argparse.Namespace, action: str) -> None:
+    if getattr(args, "yes", False):
+        return
+    reply = input(f"{action}. Type FLASH to continue: ").strip()
+    if reply != "FLASH":
+        raise SystemExit("Cancelled.")
+
+
+def cmd_flash(args: argparse.Namespace) -> int:
+    device = find_device(args.device)
+    verify_firmware_file(FIRMWARE)
+    before = probe(device)
+    if "cpc" in before.lower() and "4.5.1" in before.lower():
+        print("Radio already runs the POP-Zigbee CPC 4.5.1 firmware; nothing to flash.")
+        return 0
+    if not is_supported_probe(before):
+        print(before)
+        raise SystemExit("Hardware identity was not positively matched to ELU013/ELR023. Refusing flash.")
+    require_confirmation(args, f"Flash {FIRMWARE.name} to {device}")
+    flash_file(device, FIRMWARE, ("ezsp", "bootloader"))
+    after = probe(device, ("cpc",))
+    print(after.rstrip())
+    if "cpc" not in after.lower() or "4.5.1" not in after.lower():
+        raise SystemExit("Flash completed but CPC 4.5.1 verification failed. Use `popp-zigbee rollback`.")
+    print("Flash verified: CPC 4.5.1 @ 460800 is reachable.")
+    return 0
+
+
+def fetch_recovery(cache_dir: Path) -> Path:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    target = cache_dir / "efr32mg13p-v8-6910-115200.gbl"
+    if not target.exists() or sha256(target) != RECOVERY_SHA256:
+        print("Downloading known-good ELU013 Zigbee recovery firmware …")
+        urllib.request.urlretrieve(RECOVERY_URL, target)
+    actual = sha256(target)
+    if actual != RECOVERY_SHA256:
+        target.unlink(missing_ok=True)
+        raise SystemExit(f"Recovery firmware SHA256 mismatch: {actual}")
+    return target
+
+
+def cmd_rollback(args: argparse.Namespace) -> int:
+    device = find_device(args.device)
+    recovery = fetch_recovery(Path(args.cache))
+    require_confirmation(args, f"Restore Zigbee-only recovery firmware to {device}")
+    # Current dual firmware is CPC; the known recovery application and Gecko bootloader
+    # both use the proven ELU013/ELR023 bootloader path.
+    flash_file(device, recovery, ("cpc", "bootloader", "ezsp"))
+    after = probe(device, ("ezsp", "bootloader"))
+    print(after.rstrip())
+    if "ezsp" not in after.lower() and "elelabs" not in after.lower():
+        raise SystemExit("Rollback transfer finished, but EZSP verification was inconclusive.")
+    print("Rollback verified: Zigbee/EZSP application is reachable again.")
+    return 0
+
+
+def check_port(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=1.0):
+            return True
+    except OSError:
+        return False
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    device = find_device(args.device)
+    radio = probe(device, ("cpc",))
+    print(radio.rstrip())
+    ok = "cpc" in radio.lower() and "4.5.1" in radio.lower()
+    if args.host:
+        checks = {9999: "ZHA bridge", 8081: "OTBR REST", 9100: "health/metrics"}
+        for port, label in checks.items():
+            state = check_port(args.host, port)
+            print(f"{label:14} {args.host}:{port} {'OK' if state else 'DOWN'}")
+            ok &= state
+    return 0 if ok else 2
+
+
+def cmd_install(args: argparse.Namespace) -> int:
+    device = find_device(args.device)
+    verify_firmware_file(FIRMWARE)
+    before = probe(device)
+    print(before.rstrip())
+    if not is_supported_probe(before):
+        raise SystemExit("This adapter is not positively identified as a supported ELU013/ELR023-family board.")
+    make_backup(device, Path(args.backup_dir), args.ha_config)
+    ns = argparse.Namespace(device=str(device), yes=args.yes)
+    cmd_flash(ns)
+    print("\nRadio conversion complete.")
+    print("For Home Assistant OS, add this repository in Settings → Apps:")
+    print("  https://github.com/GodsQuantum/POP-Zigbee")
+    print("Install ‘POPP Dual Protocol’, select the same serial device, set the shared channel,")
+    print("then point ZHA at socket://<home-assistant-ip>:9999. See docs/HOME_ASSISTANT.md.")
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="popp-zigbee",
+        description="Safely convert supported POPP/Elelabs EFR32MG13 adapters to Zigbee + Thread.",
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    def with_device(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--device", help="Stable serial path; auto-detected only when unambiguous")
+
+    p = sub.add_parser("doctor", help="Probe hardware and refuse unsupported adapters")
+    with_device(p); p.set_defaults(func=cmd_doctor)
+
+    p = sub.add_parser("backup", help="Save probe metadata and optional HA Zigbee files")
+    with_device(p); p.add_argument("--output", default="backups"); p.add_argument("--ha-config"); p.set_defaults(func=cmd_backup)
+
+    p = sub.add_parser("flash", help="Flash the tested dual-protocol firmware")
+    with_device(p); p.add_argument("--yes", action="store_true"); p.set_defaults(func=cmd_flash)
+
+    p = sub.add_parser("verify", help="Verify CPC and optionally Home Assistant host services")
+    with_device(p); p.add_argument("--host", help="Home Assistant host/IP to check ports 9999/8081/9100"); p.set_defaults(func=cmd_verify)
+
+    p = sub.add_parser("rollback", help="Restore a known-good Zigbee-only ELU013 firmware")
+    with_device(p); p.add_argument("--cache", default=str(Path.home()/".cache/popp-zigbee")); p.add_argument("--yes", action="store_true"); p.set_defaults(func=cmd_rollback)
+
+    p = sub.add_parser("install", help="Doctor + backup + flash + verify in one guarded flow")
+    with_device(p); p.add_argument("--backup-dir", default="backups"); p.add_argument("--ha-config"); p.add_argument("--yes", action="store_true"); p.set_defaults(func=cmd_install)
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    try:
+        return int(args.func(args) or 0)
+    except KeyboardInterrupt:
+        print("Interrupted.", file=sys.stderr)
+        return 130
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

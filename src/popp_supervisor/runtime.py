@@ -1,0 +1,73 @@
+from pathlib import Path
+import os
+import socket
+import subprocess
+import termios
+
+from .channel_guard import evaluate_channels
+from .health import aggregate_health
+from .http import Metrics
+
+
+def parse_thread_channel(output: str) -> int | None:
+    for token in output.split():
+        if token.isdigit():
+            value = int(token)
+            if 11 <= value <= 26:
+                return value
+    return None
+
+
+
+def tty_probe(device: str | Path) -> bool:
+    """Return True only when the configured path is an openable TTY."""
+    try:
+        fd = os.open(os.fspath(device), os.O_RDONLY | os.O_NONBLOCK)
+    except OSError:
+        return False
+    try:
+        termios.tcgetattr(fd)
+        return True
+    except termios.error:
+        return False
+    finally:
+        os.close(fd)
+
+
+def tcp_probe(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def read_thread_channel(ot_ctl: str = "/opt/popp/bin/ot-ctl") -> int | None:
+    try:
+        result = subprocess.run(
+            [ot_ctl, "channel"], capture_output=True, text=True, timeout=2, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return parse_thread_channel(result.stdout)
+
+
+def collect_health(
+    *,
+    device: str | Path,
+    cpc_socket: str | Path,
+    shared_channel: int,
+    metrics: Metrics,
+    device_probe_fn=tty_probe,
+    tcp_probe_fn=tcp_probe,
+    thread_channel_fn=read_thread_channel,
+) -> dict:
+    channel = evaluate_channels(shared_channel, thread_channel_fn())
+    metrics.channel_mismatch = 0 if channel.safe else 1
+    return aggregate_health(
+        usb_present=device_probe_fn(device),
+        cpcd_healthy=Path(cpc_socket).exists(),
+        zigbee_bridge_healthy=tcp_probe_fn("127.0.0.1", 9999),
+        otbr_healthy=tcp_probe_fn("127.0.0.1", 8081),
+        channel=channel,
+    )

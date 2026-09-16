@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "target": "EFR32MG13P632F512GM32",
+  "sdk": "GSDK 4.5.1",
+  "uart": {
+    "peripheral": "USART0",
+    "tx": "PA0",
+    "rx": "PA1",
+    "baud": 460800,
+    "flow_control": "none"
+  },
+  "cpc_security": "disabled-local-usb",
+  "bootloader_interface": true,
+  "production": {
+    "path": "firmware/popp-elu013-mg13-gsdk4.5.1-dual-460800.gbl",
+    "sha256": "40112185c2cb0522b1cb5c12992184a08a747dc091e515245c53954147d04792",
+    "size_bytes": 312188,
+    "ram_bytes": 51764,
+    "ram_limit_bytes": 65536,
+    "watchdog_enabled": false,
+    "validated_on": "POPP ZB-Stick 701554 / Elelabs ELR023 token"
+  }
+}

@@ -1,0 +1,13 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+
+marker=/run/popp/intentional-cpc-reset
+if [ -e "$marker" ]; then
+  rm -f "$marker"
+  bashio::log.info "CPCd intentional reset completed; skipping crash backoff"
+  exit 0
+fi
+
+# Avoid a hot respawn loop when the USB radio is absent or invalid.
+bashio::log.warning "CPCd exited (code=$1 signal=$2); retrying in 3s"
+sleep 3

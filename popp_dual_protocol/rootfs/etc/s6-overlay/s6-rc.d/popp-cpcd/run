@@ -1,0 +1,30 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+
+device="$(popp-option device)"
+baudrate="$(popp-option baudrate 460800)"
+trace_level="info"
+if [ "$(popp-option cpcd_trace false)" = "true" ]; then
+  trace_level="frame"
+fi
+
+[ -c "$device" ] || bashio::exit.nok "Configured radio device is missing: $device"
+stty -F "$device" -a >/dev/null 2>&1 || bashio::exit.nok "Configured radio device is not a usable TTY: $device"
+mkdir -p /run/popp /dev/shm/cpcd-traces
+cat > /run/popp/cpcd.conf <<EOF
+instance_name: cpcd_0
+bus_type: UART
+uart_device_file: ${device}
+uart_device_baud: ${baudrate}
+uart_hardflow: false
+bootloader_recovery_pins_enabled: false
+trace_level: ${trace_level}
+trace_to_file: false
+trace_to_syslog: false
+traces_folder: /dev/shm/cpcd-traces
+rlimit_nofile: 512
+disable_encryption: true
+multicast_endpoints: []
+EOF
+bashio::log.info "Starting CPCd 4.9.1 on ${device} @ ${baudrate}..."
+exec /opt/popp/bin/cpcd -c /run/popp/cpcd.conf

@@ -1,0 +1,27 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Fetch pinned CPC Python binding
+        run: |
+          mkdir -p third_party
+          git clone https://github.com/SiliconLabs/cpc-daemon.git third_party/cpc-daemon
+          git -C third_party/cpc-daemon checkout 87f6dbda4eef05e4538589c195099c3daf8f6f6b
+      - name: Run tests
+        env:
+          PYTHONPATH: src:third_party/cpc-daemon/lib/bindings/python/src
+        run: pytest -q
+      - name: Validate public firmware checksum
+        run: cd firmware && sha256sum -c SHA256SUMS

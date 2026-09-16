@@ -1,0 +1,23 @@
+#!/usr/bin/with-contenv bashio
+set -u
+
+ipset_destroy_if_exist()
+{
+  while ipset list -n "$1" >/dev/null 2>&1; do
+    ipset destroy "$1" >/dev/null 2>&1 || true
+  done
+}
+
+for name in \
+  otbr-ingress-deny-src \
+  otbr-ingress-deny-src-swap \
+  otbr-ingress-allow-dst \
+  otbr-ingress-allow-dst-swap; do
+  ipset_destroy_if_exist "$name"
+done
+
+if [ "$1" -ne 0 ]; then
+  bashio::log.warning "OTBR exited (code=$1 signal=$2)"
+else
+  bashio::log.info "OTBR exited cleanly"
+fi
