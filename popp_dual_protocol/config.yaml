@@ -1,5 +1,5 @@
 ---
-version: 0.1.0
+version: 0.1.1
 slug: popp_dual_protocol
 name: POPP Dual Protocol
 description: Hardened Zigbee NCP + Thread RCP host stack for ELU013/MG13

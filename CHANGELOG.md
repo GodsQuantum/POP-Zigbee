@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 — 2026-09-16
+
+- register the embedded OTBR with Home Assistant Supervisor discovery
+- wait for the OTBR REST API before announcing discovery to avoid startup races
+- validated automatic creation of OTBR + Thread integrations and preferred Thread dataset
+
 ## 0.1.0 — 2026-09-16
 
 Initial public release.

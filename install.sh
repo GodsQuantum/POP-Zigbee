@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="https://github.com/GodsQuantum/POP-Zigbee"
-VERSION="${POPP_ZIGBEE_VERSION:-v0.1.0}"
+VERSION="${POPP_ZIGBEE_VERSION:-v0.1.1}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
 
 if [[ -n "$HERE" && -x "$HERE/popp-zigbee" && -f "$HERE/firmware/popp-elu013-mg13-gsdk4.5.1-dual-460800.gbl" ]]; then

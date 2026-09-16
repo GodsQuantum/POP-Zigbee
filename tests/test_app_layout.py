@@ -107,3 +107,18 @@ def test_pinned_runtime_artifacts_are_present_and_hashed():
         assert hashlib.sha256(target.read_bytes()).hexdigest() == digest
         seen.add(rel)
     assert expected <= seen
+
+
+def test_otbr_discovery_service_registers_with_home_assistant():
+    base = ADDON / "rootfs/etc/s6-overlay/s6-rc.d"
+    svc = base / "popp-otbr-discovery"
+    assert (svc / "type").read_text().strip() == "oneshot"
+    assert (svc / "dependencies.d/popp-otbr").exists()
+    assert (svc / "up").exists()
+    script = ADDON / "rootfs/etc/s6-overlay/scripts/popp-otbr-discovery.sh"
+    text = script.read_text()
+    assert 'bashio::discovery "otbr"' in text
+    assert 'port "^8081"' in text
+    assert "http://127.0.0.1:8081/node" in text
+    assert "/opt/popp/bin/ot-ctl rcp version" in text
+    assert (base / "user/contents.d/popp-otbr-discovery").exists()
