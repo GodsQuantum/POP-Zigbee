@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -105,3 +106,30 @@ async def test_same_preferred_dataset_is_resent_for_matter_self_healing(tmp_path
     await sync_once(client, store)
     matter_sets = [call for call in client.calls if call[0] == "matter/set_thread"]
     assert len(matter_sets) == 2
+
+
+class StalledWs:
+    def __init__(self):
+        self.sent = []
+        self.never = asyncio.Event()
+
+    async def send_json(self, payload):
+        self.sent.append(payload)
+
+    async def receive_json(self):
+        await self.never.wait()
+
+
+@pytest.mark.asyncio
+async def test_command_timeout_returns_control_to_retry_loop():
+    client = HomeAssistantClient(token="token", command_timeout=0.01)
+    client.ws = StalledWs()
+    with pytest.raises(SyncError, match=r"command_timeout:thread/list_datasets"):
+        await client.command("thread/list_datasets")
+
+
+@pytest.mark.asyncio
+async def test_auth_timeout_is_bounded():
+    client = HomeAssistantClient(token="token", command_timeout=0.01)
+    with pytest.raises(SyncError, match="authentication_timeout"):
+        await client.authenticate(StalledWs())

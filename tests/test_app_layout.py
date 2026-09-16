@@ -149,7 +149,8 @@ def test_home_assistant_sync_service_has_core_api_access():
     base = ADDON / "rootfs/etc/s6-overlay/s6-rc.d"
     sync = base / "popp-ha-sync"
     assert (sync / "type").read_text().strip() == "longrun"
-    assert (sync / "dependencies.d/popp-otbr-discovery").exists()
+    assert (sync / "dependencies.d/popp-thread-bootstrap").exists()
+    assert not (sync / "dependencies.d/popp-otbr-discovery").exists()
     assert (sync / "run").exists()
     assert (base / "user/contents.d/popp-ha-sync").exists()
     run = (sync / "run").read_text()

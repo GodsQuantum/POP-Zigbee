@@ -66,19 +66,25 @@ class HomeAssistantClient:
         *,
         token: str,
         url: str = "ws://supervisor/core/websocket",
+        command_timeout: float = 10.0,
     ):
         self.token = token
         self.url = url
+        self.command_timeout = command_timeout
         self.session: aiohttp.ClientSession | None = None
         self.ws: Any = None
         self._next_id = 0
 
     async def authenticate(self, ws: Any) -> None:
-        hello = await ws.receive_json()
-        if hello.get("type") != "auth_required":
-            raise SyncError("unexpected_websocket_auth_state")
-        await ws.send_json({"type": "auth", "access_token": self.token})
-        result = await ws.receive_json()
+        try:
+            async with asyncio.timeout(self.command_timeout):
+                hello = await ws.receive_json()
+                if hello.get("type") != "auth_required":
+                    raise SyncError("unexpected_websocket_auth_state")
+                await ws.send_json({"type": "auth", "access_token": self.token})
+                result = await ws.receive_json()
+        except TimeoutError as err:
+            raise SyncError("authentication_timeout") from err
         if result.get("type") != "auth_ok":
             raise SyncError("home_assistant_auth_failed")
 
@@ -107,18 +113,22 @@ class HomeAssistantClient:
         self._next_id += 1
         message_id = self._next_id
         payload = {"id": message_id, "type": command, **kwargs}
-        await self.ws.send_json(payload)
-        while True:
-            response = await self.ws.receive_json()
-            if response.get("id") != message_id:
-                continue
-            if response.get("type") != "result":
-                raise SyncError(f"unexpected_response:{command}")
-            if response.get("success") is not True:
-                error = response.get("error") or {}
-                code = error.get("code", "unknown")
-                raise SyncError(f"command_failed:{command}:{code}")
-            return response.get("result")
+        try:
+            async with asyncio.timeout(self.command_timeout):
+                await self.ws.send_json(payload)
+                while True:
+                    response = await self.ws.receive_json()
+                    if response.get("id") != message_id:
+                        continue
+                    if response.get("type") != "result":
+                        raise SyncError(f"unexpected_response:{command}")
+                    if response.get("success") is not True:
+                        error = response.get("error") or {}
+                        code = error.get("code", "unknown")
+                        raise SyncError(f"command_failed:{command}:{code}")
+                    return response.get("result")
+        except TimeoutError as err:
+            raise SyncError(f"command_timeout:{command}") from err
 
 
 async def sync_once(
