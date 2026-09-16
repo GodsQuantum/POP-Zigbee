@@ -133,3 +133,15 @@ async def test_auth_timeout_is_bounded():
     client = HomeAssistantClient(token="token", command_timeout=0.01)
     with pytest.raises(SyncError, match="authentication_timeout"):
         await client.authenticate(StalledWs())
+
+
+def test_status_writer_adds_heartbeat(tmp_path):
+    from popp_supervisor.ha_sync import write_status
+    import json
+
+    path = tmp_path / "status.json"
+    write_status(path, {"state": "synced"})
+    payload = json.loads(path.read_text())
+    assert payload["state"] == "synced"
+    assert isinstance(payload["updated_at"], str)
+    assert payload["updated_at"].endswith("+00:00")

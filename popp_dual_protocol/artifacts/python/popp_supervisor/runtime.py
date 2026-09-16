@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import UTC, datetime
 import json
 import os
 import socket
@@ -11,7 +12,9 @@ from .http import Metrics
 
 
 
-def load_provisioning_status(path: str | Path = "/run/popp/ha-sync-status.json") -> dict:
+def load_provisioning_status(
+    path: str | Path = "/run/popp/ha-sync-status.json", *, max_age_seconds: float = 150.0
+) -> dict:
     default = {
         "state": "waiting",
         "ha_api": False,
@@ -24,13 +27,22 @@ def load_provisioning_status(path: str | Path = "/run/popp/ha-sync-status.json")
         return default
     if not isinstance(data, dict):
         return default
+    updated_at = data.get("updated_at")
+    if not isinstance(updated_at, str):
+        return {**default, "state": "stale"}
+    try:
+        heartbeat = datetime.fromisoformat(updated_at)
+    except ValueError:
+        return {**default, "state": "stale"}
+    if heartbeat.tzinfo is None or (datetime.now(UTC) - heartbeat).total_seconds() > max_age_seconds:
+        return {**default, "state": "stale"}
     result = default.copy()
     if isinstance(data.get("state"), str):
         result["state"] = data["state"]
     for key in ("ha_api", "preferred_thread_dataset", "matter_thread_synced"):
         if isinstance(data.get(key), bool):
             result[key] = data[key]
-    for key in ("last_success", "error"):
+    for key in ("updated_at", "last_success", "error"):
         if isinstance(data.get(key), str):
             result[key] = data[key][:128]
     return result

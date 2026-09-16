@@ -155,6 +155,8 @@ async def sync_once(
 
 
 def write_status(path: str | Path, payload: dict[str, Any]) -> None:
+    payload = dict(payload)
+    payload["updated_at"] = datetime.now(UTC).isoformat()
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + ".tmp")
