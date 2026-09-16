@@ -29,7 +29,7 @@ It never overwrites an existing Active Dataset. Existing-network migrations rema
 
 Add a long-running `popp-ha-sync` service. It connects to Home Assistant Core through the documented Supervisor WebSocket proxy, waits for the Thread and Matter APIs, finds the single dataset marked `preferred`, fetches its TLV transiently, and calls `matter/set_thread`.
 
-The TLV is never logged or persisted by POP-Zigbee. Only a SHA-256 fingerprint is retained in `/data/ha-sync-state.json` so unchanged credentials are not resent on every poll.
+The TLV is never logged or persisted by POP-Zigbee. Only a SHA-256 fingerprint is retained in `/data/ha-sync-state.json` for diagnostics. The preferred dataset is deliberately resent idempotently on each sync cycle so Matter Server self-heals if its stored Thread credentials are cleared or rebuilt.
 
 The service reconnects after Core restarts and rechecks periodically so a changed preferred dataset is propagated without manual intervention.
 ### 3. Health semantics

@@ -16,4 +16,6 @@ Host stack for a POP-Zigbee-converted EFR32MG13 adapter.
 - `:9100/healthz` readiness JSON
 - `:9100/metrics` Prometheus metrics
 
+On Home Assistant 2026.9+, a fresh installation automatically forms Thread on `shared_channel`, advertises OTBR to Home Assistant and synchronizes the Home Assistant preferred Thread dataset to Matter Server. Existing Active Datasets are never overwritten automatically.
+
 Read the repository's `docs/HOME_ASSISTANT.md` before migrating an existing Zigbee or Thread network.

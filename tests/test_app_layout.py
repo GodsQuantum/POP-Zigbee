@@ -28,6 +28,7 @@ def test_runtime_scripts_and_dockerfile_exist():
     assert "amd64-base-debian:trixie" in dockerfile
     assert "COPY rootfs /" in dockerfile
     assert "bellows==1.0.1" in dockerfile
+    assert "aiohttp==3.14.3" in dockerfile
 
     base = ADDON / "rootfs/etc/s6-overlay/s6-rc.d"
     for service in ("popp-cpcd", "popp-bridge", "popp-otbr", "popp-supervisor"):
@@ -122,3 +123,32 @@ def test_otbr_discovery_service_registers_with_home_assistant():
     assert "http://127.0.0.1:8081/node" in text
     assert "/opt/popp/bin/ot-ctl rcp version" in text
     assert (base / "user/contents.d/popp-otbr-discovery").exists()
+
+
+def test_thread_bootstrap_runs_before_otbr_discovery():
+    base = ADDON / "rootfs/etc/s6-overlay/s6-rc.d"
+    bootstrap = base / "popp-thread-bootstrap"
+    discovery = base / "popp-otbr-discovery"
+    assert (bootstrap / "type").read_text().strip() == "oneshot"
+    assert (bootstrap / "dependencies.d/popp-otbr").exists()
+    assert (bootstrap / "up").exists()
+    assert (discovery / "dependencies.d/popp-thread-bootstrap").exists()
+    assert (base / "user/contents.d/popp-thread-bootstrap").exists()
+    up = (bootstrap / "up").read_text()
+    assert "popp-option shared_channel" in up
+    assert "popp_supervisor.thread_bootstrap" in up
+    assert "seq 1 60" in up
+    assert "sleep 1" in up
+
+def test_home_assistant_sync_service_has_core_api_access():
+    config = (ADDON / "config.yaml").read_text()
+    assert "homeassistant_api: true" in config
+    base = ADDON / "rootfs/etc/s6-overlay/s6-rc.d"
+    sync = base / "popp-ha-sync"
+    assert (sync / "type").read_text().strip() == "longrun"
+    assert (sync / "dependencies.d/popp-otbr-discovery").exists()
+    assert (sync / "run").exists()
+    assert (base / "user/contents.d/popp-ha-sync").exists()
+    run = (sync / "run").read_text()
+    assert "SUPERVISOR_TOKEN" in run
+    assert "popp_supervisor.ha_sync" in run

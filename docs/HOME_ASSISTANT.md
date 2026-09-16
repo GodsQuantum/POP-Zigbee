@@ -1,6 +1,6 @@
 # Home Assistant OS setup
 
-This is the validated deployment path for a converted POPP 701554.
+This is the validated deployment path for a converted POPP 701554 on Home Assistant 2026.9+.
 
 ## 1. Add the App repository
 
@@ -47,11 +47,15 @@ Configure the existing ZHA entry to use:
 Baud/flow-control values are irrelevant to the TCP side; the App owns the physical 460800 CPC UART.
 ## 4. Thread / Matter
 
-If no Thread Active Dataset exists yet, create or import one through Home Assistant/OpenThread and keep it on the same shared channel. The validated runtime used channel 15 and reached Thread role `leader`.
+On a **fresh POP-Zigbee installation with no Active Dataset**, the App creates a secure OpenThread dataset exactly once, forces the configured `shared_channel`, commits it active and stores it in persistent App data. Home Assistant then discovers the OTBR and imports that dataset into its Thread integration.
 
-Do not automatically overwrite an existing Active Dataset. Existing Thread credentials may already be used by commissioned Matter devices.
+If an Active Dataset already exists, POP-Zigbee never replaces it automatically. This protects commissioned Thread devices and migrations from another installation. The bootstrap only ensures the existing network is started again after a restart.
 
-Before commissioning Matter-over-Thread from Android, verify the Home Assistant Thread network is preferred and **sync its Thread credentials to the phone** from the Home Assistant Companion app. A healthy OTBR alone is not sufficient: the phone performs the initial BLE commissioning and must know the Thread dataset.
+`POPP Dual Protocol` also connects to Home Assistant Core through the supported App WebSocket proxy. Every 60 seconds it reads **only the Home Assistant preferred Thread dataset** and calls the Matter integration's `matter/set_thread`. The dataset itself is never logged or persisted by POP-Zigbee; only a SHA-256 fingerprint is kept for diagnostics. Periodic reapplication lets Matter Server recover automatically if its stored Thread credentials are cleared or rebuilt.
+
+For Matter commissioning, Bluetooth is still supplied by the normal Home Assistant path: the Companion app, a Bluetooth adapter available to Home Assistant, or a supported Bluetooth/ESPHome proxy. POP-Zigbee's EFR32MG13 remains the Zigbee + Thread radio; it is not a Bluetooth adapter.
+
+If commissioning from Android, sync the preferred Thread credentials to the phone in the Home Assistant Companion app before pairing. With a Home Assistant Bluetooth path, direct server-side commissioning can also be used.
 
 See [Matter / Thread commissioning](COMMISSIONING.md) for the end-to-end readiness checklist and troubleshooting sequence.
 
@@ -70,3 +74,12 @@ A Home Assistant Core restart intentionally causes one secondary reset during Be
 ## Known harmless warning
 
 The GSDK 4.5.1 OTBR snapshot uses Avahi. On HAOS host networking, Avahi can warn that another mDNS stack exists. This was left unchanged because replacing the validated GSDK-matched OTBR solely to remove that cosmetic warning would add unnecessary risk.
+
+## Moving the stick to another Home Assistant instance
+
+The dual-protocol firmware is persistent **on the USB stick**, but the Thread Active Operational Dataset is host-managed state. Moving only the stick to a brand-new Home Assistant instance does not carry an existing Thread mesh with it.
+
+- For a genuinely fresh home: install POPP Dual Protocol and let it form a new secure dataset on `shared_channel`.
+- To preserve an existing Matter-over-Thread mesh: restore/import the previous Thread dataset or Home Assistant backup before commissioning/reconnecting devices.
+
+Never regenerate the Thread dataset merely to fix a commissioning problem; changing it changes the Thread network credentials.

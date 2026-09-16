@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import socket
 import subprocess
@@ -8,6 +9,31 @@ from .channel_guard import evaluate_channels
 from .health import aggregate_health
 from .http import Metrics
 
+
+
+def load_provisioning_status(path: str | Path = "/run/popp/ha-sync-status.json") -> dict:
+    default = {
+        "state": "waiting",
+        "ha_api": False,
+        "preferred_thread_dataset": False,
+        "matter_thread_synced": False,
+    }
+    try:
+        data = json.loads(Path(path).read_text())
+    except (OSError, json.JSONDecodeError, TypeError):
+        return default
+    if not isinstance(data, dict):
+        return default
+    result = default.copy()
+    if isinstance(data.get("state"), str):
+        result["state"] = data["state"]
+    for key in ("ha_api", "preferred_thread_dataset", "matter_thread_synced"):
+        if isinstance(data.get(key), bool):
+            result[key] = data[key]
+    for key in ("last_success", "error"):
+        if isinstance(data.get(key), str):
+            result[key] = data[key][:128]
+    return result
 
 def parse_thread_channel(output: str) -> int | None:
     for token in output.split():
@@ -61,6 +87,7 @@ def collect_health(
     device_probe_fn=tty_probe,
     tcp_probe_fn=tcp_probe,
     thread_channel_fn=read_thread_channel,
+    provisioning_status_fn=load_provisioning_status,
 ) -> dict:
     channel = evaluate_channels(shared_channel, thread_channel_fn())
     metrics.channel_mismatch = 0 if channel.safe else 1
@@ -70,4 +97,5 @@ def collect_health(
         zigbee_bridge_healthy=tcp_probe_fn("127.0.0.1", 9999),
         otbr_healthy=tcp_probe_fn("127.0.0.1", 8081),
         channel=channel,
+        provisioning=provisioning_status_fn(),
     )

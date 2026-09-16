@@ -81,3 +81,35 @@ def test_runtime_uses_packaged_ot_ctl_by_default():
 
     default = inspect.signature(read_thread_channel).parameters["ot_ctl"].default
     assert default == "/opt/popp/bin/ot-ctl"
+
+
+def test_missing_provisioning_status_is_safe_waiting_state(tmp_path):
+    from popp_supervisor.runtime import load_provisioning_status
+
+    status = load_provisioning_status(tmp_path / "missing.json")
+    assert status == {
+        "state": "waiting",
+        "ha_api": False,
+        "preferred_thread_dataset": False,
+        "matter_thread_synced": False,
+    }
+
+
+def test_provisioning_status_whitelists_fields_and_drops_secrets(tmp_path):
+    from popp_supervisor.runtime import load_provisioning_status
+    import json
+
+    path = tmp_path / "status.json"
+    path.write_text(json.dumps({
+        "state": "synced",
+        "ha_api": True,
+        "preferred_thread_dataset": True,
+        "matter_thread_synced": True,
+        "last_success": "2026-09-16T20:00:00+00:00",
+        "thread_operation_dataset": "SECRET",
+    }))
+    status = load_provisioning_status(path)
+    assert status["state"] == "synced"
+    assert status["matter_thread_synced"] is True
+    assert "thread_operation_dataset" not in status
+    assert "SECRET" not in repr(status)

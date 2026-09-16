@@ -85,3 +85,21 @@ def test_channel_mismatch_is_blocked_not_restarted():
     health["channel"] = evaluate_channels(15, 25).__dict__
     health["ready"] = False
     assert choose_recovery(health, RecoveryState()) is RecoveryAction.BLOCK_UNSAFE_CHANNEL
+
+
+def test_provisioning_state_does_not_gate_radio_readiness():
+    health = aggregate_health(
+        usb_present=True,
+        cpcd_healthy=True,
+        zigbee_bridge_healthy=True,
+        otbr_healthy=True,
+        channel=evaluate_channels(15, 15),
+        provisioning={
+            "state": "waiting_preferred_dataset",
+            "ha_api": True,
+            "preferred_thread_dataset": False,
+            "matter_thread_synced": False,
+        },
+    )
+    assert health["ready"] is True
+    assert health["provisioning"]["matter_thread_synced"] is False

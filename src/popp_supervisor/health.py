@@ -10,6 +10,7 @@ def aggregate_health(
     zigbee_bridge_healthy: bool,
     otbr_healthy: bool,
     channel: ChannelStatus,
+    provisioning: dict | None = None,
 ) -> dict:
     components = {
         "usb": usb_present,
@@ -21,4 +22,10 @@ def aggregate_health(
         "ready": all(components.values()) and channel.safe,
         "components": components,
         "channel": asdict(channel),
+        "provisioning": provisioning or {
+            "state": "waiting",
+            "ha_api": False,
+            "preferred_thread_dataset": False,
+            "matter_thread_synced": False,
+        },
     }

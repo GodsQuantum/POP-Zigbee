@@ -1,13 +1,14 @@
 ---
-version: 0.1.1
+version: 0.1.2
 slug: popp_dual_protocol
 name: POPP Dual Protocol
 description: Hardened Zigbee NCP + Thread RCP host stack for ELU013/MG13
 url: https://github.com/GodsQuantum/POP-Zigbee
 arch:
   - amd64
-homeassistant: 2025.7.0
+homeassistant: 2026.9.0
 hassio_api: true
+homeassistant_api: true
 discovery:
   - otbr
 host_ipc: false

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2
+
+- form a fresh Thread network on `shared_channel` before OTBR discovery and persist it in app data
+- preserve existing Thread datasets while ensuring Thread is started after restarts
+- synchronize the preferred Home Assistant Thread dataset to Matter Server every 60 seconds for self-healing
+- add `homeassistant_api` access and non-secret provisioning diagnostics to `/healthz`
+- raise the minimum Home Assistant version to 2026.9
+
 ## 0.1.1
 
 - advertise the embedded OTBR to Home Assistant Core

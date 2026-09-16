@@ -27,6 +27,8 @@ On a physical **POPP ZB-Stick 701554**:
 - Zigbee CPC endpoint **5** + Thread CPC endpoint **12** simultaneously
 - ZHA/Bellows using `socket://<HA-IP>:9999`
 - OTBR Thread **leader** on the same 802.15.4 channel as Zigbee
+- automatic fresh-install Thread bootstrap on `shared_channel` + Home Assistant → Matter Server credential sync
+- Matter-over-Thread commissioning of an IKEA ALPSTUGA E2495, including OTA through Home Assistant
 - repeated Home Assistant Core restarts with automatic CPC reset/reconnect
 - CPCd 4.9.1 + OTBR on Home Assistant OS amd64
 - recovery path back to a known-good Zigbee-only Elelabs firmware
@@ -60,9 +62,9 @@ The installer probes the board first, stores pre-flash metadata, verifies the fi
 2. Install **POPP Dual Protocol**.
 3. Select the stable serial device and one shared 802.15.4 channel.
 4. Point ZHA to `socket://<HOME_ASSISTANT_IP>:9999`.
-5. Use the OTBR discovery created by the app for Thread/Matter.
+5. Use the OTBR discovery created by the app for Thread/Matter. On a fresh install, the app forms a secure Thread dataset on `shared_channel` before discovery; Home Assistant imports it and POP-Zigbee automatically propagates the preferred dataset to Matter Server.
 
-The App builds locally in Home Assistant from the pinned host artifacts included in this repository; no private container registry is required.
+The App builds locally in Home Assistant from the pinned host artifacts included in this repository; no private container registry is required. The `0.1.2` automatic provisioning path requires Home Assistant **2026.9+**.
 
 See [Home Assistant setup](docs/HOME_ASSISTANT.md) for the migration sequence. The radio and Thread must use the **same 802.15.4 channel** on MG13; the app treats a mismatch as unsafe instead of hiding it.
 
@@ -112,6 +114,8 @@ The project treats firmware flashing as a hardware operation, not a convenience 
 - the tested baseline keeps the radio watchdog disabled
 - ZHA resets are transactional: CPCd resets the secondary, libcpc reconnects, then ASH sends `RSTACK`
 - Thread dataset survives those resets and OTBR reattaches automatically
+- a fresh OTBR gets a one-time secure dataset on `shared_channel`; an existing dataset is never overwritten automatically
+- the preferred Home Assistant Thread dataset is periodically synced to Matter Server without logging or persisting its secrets
 - `Channel Guard` reports unknown/mismatched Zigbee/Thread channels as **not ready**
 
 If anything goes wrong, read [Recovery](docs/RECOVERY.md) before experimenting.

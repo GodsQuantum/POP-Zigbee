@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bashio
+set -euo pipefail
+
+: "${SUPERVISOR_TOKEN:?SUPERVISOR_TOKEN is required}"
+mkdir -p /run/popp
+bashio::log.info "Starting Home Assistant Thread -> Matter credential sync..."
+exec python3 -m popp_supervisor.ha_sync --interval 60

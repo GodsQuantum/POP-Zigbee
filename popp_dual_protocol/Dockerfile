@@ -7,7 +7,7 @@ RUN apt-get update \
       avahi-daemon dbus iproute2 ipset iptables \
       libavahi-client3 libavahi-common3 libdbus-1-3 libsystemd0 \
       libstdc++6 netcat-openbsd python3 python3-pip \
- && pip3 install --break-system-packages --no-cache-dir bellows==1.0.1 \
+ && pip3 install --break-system-packages --no-cache-dir bellows==1.0.1 aiohttp==3.14.3 \
  && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /opt/popp/bin /opt/popp/lib /opt/popp/python /run/popp /etc/iproute2 \

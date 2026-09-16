@@ -48,7 +48,7 @@
 - Create user/dependency links for `popp-ha-sync`.
 **Interfaces:** `HomeAssistantClient` wraps `ws://supervisor/core/websocket`; `sync_once()` returns a sanitized `SyncOutcome`. `DatasetFingerprintStore` persists only SHA-256 and timestamp.
 
-- [ ] Write tests for WebSocket auth/command framing, selecting only `preferred: true`, no preferred dataset, Matter API not ready, successful sync, unchanged fingerprint, and dataset change.
+- [ ] Write tests for WebSocket auth/command framing, selecting only `preferred: true`, no preferred dataset, successful sync, and repeated idempotent resync for Matter self-healing.
 - [ ] Run the tests and confirm expected RED failures.
 - [ ] Implement the minimal aiohttp-based client using `SUPERVISOR_TOKEN`; add `homeassistant_api: true` to the app manifest.
 - [ ] Implement retry/backoff loop and `/data/ha-sync-state.json` fingerprint persistence with atomic writes and mode 0600.
