@@ -25,3 +25,5 @@ jobs:
         run: pytest -q
       - name: Validate public firmware checksum
         run: cd firmware && sha256sum -c SHA256SUMS
+      - name: Validate bundled runtime artifact checksums
+        run: cd popp_dual_protocol && sha256sum -c artifacts/SHA256SUMS

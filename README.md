@@ -62,6 +62,8 @@ The installer probes the board first, stores pre-flash metadata, verifies the fi
 4. Point ZHA to `socket://<HOME_ASSISTANT_IP>:9999`.
 5. Use the OTBR discovery created by the app for Thread/Matter.
 
+The App builds locally in Home Assistant from the pinned host artifacts included in this repository; no private container registry is required.
+
 See [Home Assistant setup](docs/HOME_ASSISTANT.md) for the migration sequence. The radio and Thread must use the **same 802.15.4 channel** on MG13; the app treats a mismatch as unsafe instead of hiding it.
 
 ## 🧠 Architecture

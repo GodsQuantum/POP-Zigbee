@@ -84,3 +84,26 @@ def test_otbr_precreates_and_cleans_firewall_ipsets():
     ):
         assert f"ipset create -exist {name} hash:net family inet6" in run
         assert name in finish
+
+
+def test_pinned_runtime_artifacts_are_present_and_hashed():
+    import hashlib
+
+    artifacts = ADDON / "artifacts"
+    sums = artifacts / "SHA256SUMS"
+    assert sums.is_file()
+    expected = {
+        "artifacts/bin/cpcd",
+        "artifacts/bin/otbr-agent",
+        "artifacts/bin/ot-ctl",
+        "artifacts/lib/libcpc.so.4.9.1",
+    }
+    seen = set()
+    for line in sums.read_text().splitlines():
+        digest, rel = line.split(maxsplit=1)
+        rel = rel.lstrip(" *")
+        target = ADDON / rel
+        assert target.is_file(), rel
+        assert hashlib.sha256(target.read_bytes()).hexdigest() == digest
+        seen.add(rel)
+    assert expected <= seen

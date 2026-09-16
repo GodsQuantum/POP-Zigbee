@@ -6,7 +6,6 @@ description: Hardened Zigbee NCP + Thread RCP host stack for ELU013/MG13
 url: https://github.com/GodsQuantum/POP-Zigbee
 arch:
   - amd64
-image: ghcr.io/godsquantum/{arch}-addon-popp-dual-protocol
 homeassistant: 2025.7.0
 hassio_api: true
 discovery:

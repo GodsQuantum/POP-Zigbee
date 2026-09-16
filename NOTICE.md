@@ -8,7 +8,7 @@ The repository and runtime also interact with third-party components under their
 
 The EFR32 firmware in `firmware/` is a compiled Licensed Program built from Silicon Labs Gecko SDK 4.5.1 for use on compatible Silicon Labs EFR32MG13 devices. Gecko SDK components are subject to the Silicon Labs Master Software License Agreement (MSLA) unless a file states another license.
 
-CPCd and some Silicon Labs host-side sources are also distributed under the MSLA. The prebuilt Home Assistant image contains CPCd object code for use with the supported Silicon Labs radio.
+CPCd and some Silicon Labs host-side sources are also distributed under the MSLA. The Home Assistant App ships pinned CPCd/libcpc host artifacts for use with the supported Silicon Labs radio; their SHA256 values are recorded in `popp_dual_protocol/artifacts/SHA256SUMS`.
 
 - GSDK license: https://github.com/SiliconLabs/gecko_sdk/blob/gsdk_4.5/License.txt
 - MSLA: https://www.silabs.com/about-us/legal/master-software-license-agreement
