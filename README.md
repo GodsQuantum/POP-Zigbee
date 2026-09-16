@@ -123,6 +123,7 @@ This is still one 2.4 GHz transceiver. It is not equivalent to two independent r
 ## 📚 Docs
 
 - [Home Assistant setup](docs/HOME_ASSISTANT.md)
+- [Matter / Thread commissioning](docs/COMMISSIONING.md)
 - [Supported hardware](docs/SUPPORTED_HARDWARE.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Recovery / rollback](docs/RECOVERY.md)

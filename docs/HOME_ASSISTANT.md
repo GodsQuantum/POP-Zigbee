@@ -51,6 +51,10 @@ If no Thread Active Dataset exists yet, create or import one through Home Assist
 
 Do not automatically overwrite an existing Active Dataset. Existing Thread credentials may already be used by commissioned Matter devices.
 
+Before commissioning Matter-over-Thread from Android, verify the Home Assistant Thread network is preferred and **sync its Thread credentials to the phone** from the Home Assistant Companion app. A healthy OTBR alone is not sufficient: the phone performs the initial BLE commissioning and must know the Thread dataset.
+
+See [Matter / Thread commissioning](COMMISSIONING.md) for the end-to-end readiness checklist and troubleshooting sequence.
+
 ## 5. Verify
 
 Check:
