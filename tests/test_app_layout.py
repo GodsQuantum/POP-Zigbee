@@ -131,14 +131,17 @@ def test_thread_bootstrap_runs_before_otbr_discovery():
     discovery = base / "popp-otbr-discovery"
     assert (bootstrap / "type").read_text().strip() == "oneshot"
     assert (bootstrap / "dependencies.d/popp-otbr").exists()
-    assert (bootstrap / "up").exists()
+    up = bootstrap / "up"
+    assert up.read_text().strip() == "/etc/s6-overlay/scripts/popp-thread-bootstrap.sh"
     assert (discovery / "dependencies.d/popp-thread-bootstrap").exists()
     assert (base / "user/contents.d/popp-thread-bootstrap").exists()
-    up = (bootstrap / "up").read_text()
-    assert "popp-option shared_channel" in up
-    assert "popp_supervisor.thread_bootstrap" in up
-    assert "seq 1 60" in up
-    assert "sleep 1" in up
+    script = ADDON / "rootfs/etc/s6-overlay/scripts/popp-thread-bootstrap.sh"
+    text = script.read_text()
+    assert text.startswith("#!/usr/bin/with-contenv bashio")
+    assert "popp-option shared_channel" in text
+    assert "popp_supervisor.thread_bootstrap" in text
+    assert "seq 1 60" in text
+    assert "sleep 1" in text
 
 def test_home_assistant_sync_service_has_core_api_access():
     config = (ADDON / "config.yaml").read_text()
